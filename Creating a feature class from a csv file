@@ -1,0 +1,131 @@
+# -*- coding: utf-8 -*-
+# =============================================================================
+# Created By: Andrew Wiebe
+# Date: Jan 25th 2023
+# =============================================================================
+# Python Version: 3.7
+# ArcGIS Pro version: 2.9
+# Purpose: created for GIST8138 Module 04, csv to point shapefile, 
+# =============================================================================
+# Description: creating new features and populating the feature with data from a csv. importing in 
+# particulate data and a area of intrest shapefile (vancouver). creating a new shapefile filled with multipoints of the data from the csv
+# Usage: as an arcgis pro 2.9 script
+# Script Tool Parameters: Input CSV, Input Shapefile, Output Shapefile
+# =============================================================================
+# Imports arcpy, sys, traceback
+# =============================================================================
+
+# =============================================================================
+# Import arcpy, sys, traceback
+# =============================================================================
+import arcpy
+import sys
+import traceback
+
+# =============================================================================
+# insert traceback
+# =============================================================================
+try:
+    # =============================================================================
+    # create some parameters for the csv and shapefiles
+    # =============================================================================
+    inputCSV = arcpy.GetParameterAsText(0)
+    inputSHP = arcpy.GetParameterAsText(1)
+    outputSHP = arcpy.GetParameterAsText(2)
+
+    # =============================================================================
+    # create a variable that holds the described input shapefile spatial reference
+    # =============================================================================
+    sPr = arcpy.Describe(inputSHP).spatialReference
+
+    # =============================================================================
+    # creates a point feature class in the module4v2.gdb and will output it as pointsVan shapefile
+    # =============================================================================
+    ptVan = arcpy.management.CreateFeatureclass("Z:\Arc3GIST8138\mod04\module4v2.gdb", "pointsVan", "POINT","", "", "", sPr)
+
+    # =============================================================================
+    # creates three fields for the newly created feature class, lat, long, parval
+    # =============================================================================
+    Lat = arcpy.management.AddField(ptVan, "Lat", "Double")
+    Long = arcpy.management.AddField(ptVan, "Long", "Double")
+    ParVal = arcpy.management.AddField(ptVan, "ParValue", "Long")
+
+    # =============================================================================
+    # create a cursor to insert data into the newly created fields above
+    # =============================================================================
+    cursor = arcpy.da.InsertCursor(ptVan, ["ParValue", "Lat", "Long","SHAPE@XY"])
+
+    # =============================================================================
+    # create a variable to hold an arcpy point, empty so we can put data inot it in the loop below
+    # =============================================================================
+    pnt = arcpy.Point()
+    # =============================================================================
+    # opens the inputCSV and reads the header so its out of the way which is needed to collect data
+    # =============================================================================
+    with open(inputCSV, "r") as datafile:
+        datafile.readline()
+
+        # =============================================================================
+        # create a for loop to loop through the csv
+        # =============================================================================
+        for record in datafile:
+
+            # =============================================================================
+            # splits each row into its own variables
+            # =============================================================================
+            particulate, latitude, longitude = str.split(record, ",")
+
+            # =============================================================================
+            # turns each variable into number data type; float and integer
+            # =============================================================================
+            particulateINT = int(particulate)
+            latitudeFL = float(latitude)
+            longitudeFL = float(longitude)
+
+            # =============================================================================
+            # assign lat and long to the perviously empty pnt object
+            # =============================================================================
+            pnt.Y = latitudeFL
+            pnt.X = longitudeFL
+
+            # =============================================================================
+            # create a list object to hold the particulate data, lat, long, and the pnt
+            # =============================================================================
+            list = [particulateINT, latitudeFL, longitudeFL, pnt]
+
+            # =============================================================================
+            # insert new row for each row in the csv for the cursor with the newly created list object
+            # =============================================================================
+            cursor.insertRow(list)
+
+    # =============================================================================
+    # delestes the cursor to save memory
+    # =============================================================================
+    del cursor
+
+except arcpy.ExecuteError: 
+    # Get the tool error messages 
+    msgs = arcpy.GetMessages(2) 
+
+    # Return tool error messages for use with a script tool 
+    arcpy.AddError(msgs) 
+
+    # Print tool error messages for use in Python
+    print(msgs)
+
+except:
+    # Get the traceback object
+    tb = sys.exc_info()[2]
+    tbinfo = traceback.format_tb(tb)[0]
+
+    # Concatenate information together concerning the error into a message string
+    pymsg = "PYTHON ERRORS:\nTraceback info:\n" + tbinfo + "\nError Info:\n" + str(sys.exc_info()[1])
+    msgs = "ArcPy ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+
+    # Return Python error messages for use in script tool or Python window
+    arcpy.AddError(pymsg)
+    arcpy.AddError(msgs)
+
+    # Print Python error messages for use in Python / Python window
+    print(pymsg)
+    print(msgs)
